@@ -118,6 +118,14 @@
     .result-stats span { font-size: 11px; color: var(--muted); }
     .result-stats .right { color: var(--green); }
     .result-stats .missed { color: var(--red); }
+    .copy-status { min-height: 1.6em; margin: 14px 0 0; color: var(--muted); font-size: 12px; }
+    .manual-copy-label { display: block; margin-top: 12px; color: var(--text); font-size: 12px; font-weight: 700; text-align: left; }
+    .manual-copy {
+      display: block; width: 100%; min-height: 112px; margin-top: 6px; padding: 10px;
+      border: 1px solid var(--line); border-radius: 9px; background: var(--option);
+      color: var(--text); font: inherit; font-size: 12px; line-height: 1.6; resize: vertical;
+    }
+    .manual-copy:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
     @keyframes twinkle { from { opacity: .35; } to { opacity: 1; } }
     @keyframes appear { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
@@ -233,6 +241,10 @@
             <div><strong class="right" id="right-count"></strong><span>맞힌 문제</span></div>
             <div><strong class="missed" id="wrong-count"></strong><span>새로 배운 문제</span></div>
           </div>
+          <button id="copy-results" class="next">결과 복사하기</button>
+          <p id="copy-status" class="copy-status" role="status" aria-live="polite" aria-atomic="true"></p>
+          <label id="manual-copy-label" class="manual-copy-label" for="manual-copy" hidden>아래 결과 텍스트를 선택해 직접 복사해 주세요.</label>
+          <textarea id="manual-copy" class="manual-copy" readonly aria-labelledby="manual-copy-label" hidden></textarea>
           <button id="restart" class="next">다시 탐험하기 <span aria-hidden="true">↻</span></button>
         </div>
       </section>
@@ -398,6 +410,44 @@
       $("result-title").focus();
     }
 
+    function createResultText() {
+      return [
+        "코스모스 우주 퀴즈",
+        "최종 점수: " + $("final-score").textContent + "/100점",
+        "맞힌 문제: " + correctCount + "/" + questions.length,
+        "결과: " + $("reaction").textContent + " " + $("result-title").textContent,
+        $("result-copy").textContent
+      ].join("\n");
+    }
+
+    function showManualCopy(text) {
+      $("copy-status").textContent = "자동 복사에 실패했어요. 아래 결과 텍스트를 직접 선택해 복사해 주세요.";
+      $("manual-copy").value = text;
+      $("manual-copy-label").hidden = false;
+      $("manual-copy").hidden = false;
+      $("manual-copy").focus();
+      $("manual-copy").select();
+    }
+
+    async function copyResults() {
+      const text = createResultText();
+      $("copy-status").textContent = "";
+      $("manual-copy-label").hidden = true;
+      $("manual-copy").hidden = true;
+      $("manual-copy").value = "";
+      try {
+        const clipboard = navigator.clipboard;
+        if (!clipboard || typeof clipboard.writeText !== "function") {
+          showManualCopy(text);
+          return;
+        }
+        await clipboard.writeText(text);
+        $("copy-status").textContent = "결과를 복사했어요.";
+      } catch {
+        showManualCopy(text);
+      }
+    }
+
     $("next").addEventListener("click", () => {
       if (!answered) return;
       if (current === questions.length - 1) showResults();
@@ -406,10 +456,15 @@
         renderQuestion(true);
       }
     });
+    $("copy-results").addEventListener("click", copyResults);
     $("restart").addEventListener("click", () => {
       current = 0;
       correctCount = 0;
       $("score").textContent = "0점";
+      $("copy-status").textContent = "";
+      $("manual-copy-label").hidden = true;
+      $("manual-copy").hidden = true;
+      $("manual-copy").value = "";
       $("results").hidden = true;
       $("quiz").hidden = false;
       renderQuestion(true);
